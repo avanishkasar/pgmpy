@@ -295,3 +295,37 @@ class TestUAIWriter:
 12
 2.25 3.25 3.75 0.0 0.0 10.0 1.875 4.0 3.333 2.0 2.0 3.4"""
         assert str(markov_writer) == str(expected_markov_file)
+
+
+def test_read_values_in_scientific_notation():
+    uai_string = """BAYES
+2
+2 2
+2
+1 0
+2 0 1
+
+2
+1e-05 0.99999
+4
+2.5E-3 0.9975 .5 5.0e-1"""
+    reader = UAIReader(string=uai_string)
+    tables = reader.get_tables()
+
+    np.testing.assert_allclose(np.array(tables[0][1], dtype=float), [1e-05, 0.99999])
+    np.testing.assert_allclose(np.array(tables[1][1], dtype=float), [2.5e-3, 0.9975, 0.5, 0.5])
+
+
+def test_writer_output_with_small_probabilities_round_trips():
+    model = DiscreteBayesianNetwork([("A", "B")])
+    cpd_a = TabularCPD("A", 2, [[1e-05], [0.99999]])
+    cpd_b = TabularCPD("B", 2, [[7.5e-05, 0.4], [0.999925, 0.6]], evidence=["A"], evidence_card=[2])
+    model.add_cpds(cpd_a, cpd_b)
+
+    written = str(UAIWriter(model))
+    assert "e-05" in written
+
+    read_model = UAIReader(string=written).read()
+    values = sorted(cpd.get_values().ravel().tolist() for cpd in read_model.get_cpds())
+    expected = sorted(cpd.get_values().ravel().tolist() for cpd in model.get_cpds())
+    np.testing.assert_allclose(sorted(sum(values, [])), sorted(sum(expected, [])))

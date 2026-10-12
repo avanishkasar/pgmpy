@@ -3,7 +3,7 @@ from itertools import combinations
 import numpy as np
 
 try:
-    from pyparsing import Combine, Literal, Optional, Regex, Word, alphas, nums
+    from pyparsing import Regex, Word, alphas, nums
 except ImportError as e:
     raise ImportError(
         f"{e}. pyparsing is required for using read/write methods. Please install using: pip install pyparsing."
@@ -86,7 +86,9 @@ class UAIReader(BaseReader):
             function_grammar = ((integer) * int(function_scope)).set_results_name("fun_" + str(function))
             grammar += function_grammar
 
-        floatnumber = Combine(Word(nums) + Optional(Literal(".") + Optional(Word(nums))))
+        # Accept plain decimals and scientific notation (e.g. 1e-05), which UAIWriter and
+        # other UAI tools emit for small probabilities.
+        floatnumber = Regex(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
         for function in range(0, self.no_functions):
             no_values_grammar = Word(nums).set_results_name("fun_no_values_" + str(function))
             grammar += no_values_grammar
