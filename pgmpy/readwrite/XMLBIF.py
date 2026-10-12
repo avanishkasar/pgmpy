@@ -426,10 +426,25 @@ class XMLBIFWriter(BaseWriter):
             else:
                 states = cpd.state_names[var]
 
-            for state in states:
+            self.variable_name = var  # Set the current variable name
+            valid_states = [self._make_valid_state_name(state) for state in states]
+            # Different states can map to the same name (e.g. "<7.5" and ">=7.5" both become
+            # "_7_5"). Writing them would produce a file that XMLBIFReader cannot read back.
+            if len(set(valid_states)) != len(valid_states):
+                collisions = {
+                    valid: [str(s) for s, v in zip(states, valid_states) if v == valid]
+                    for valid in valid_states
+                    if valid_states.count(valid) > 1
+                }
+                raise ValueError(
+                    f"Cannot write variable {var!r} to XMLBIF: these states map to the same "
+                    f"name after replacing special characters: {collisions}. "
+                    "Rename the states so they stay distinct."
+                )
+
+            for valid_state in valid_states:
                 state_tag = etree.SubElement(self.variables[var], "OUTCOME")
-                self.variable_name = var  # Set the current variable name
-                state_tag.text = self._make_valid_state_name(state)
+                state_tag.text = valid_state
                 outcome_tag[var].append(state_tag)
         return outcome_tag
 

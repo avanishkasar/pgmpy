@@ -435,3 +435,26 @@ class TestXMLBIFWriterMethodsString:
         finally:
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
+
+
+def test_writer_raises_when_state_names_collide():
+    model = DiscreteBayesianNetwork()
+    model.add_node("co2")
+    model.add_cpds(TabularCPD("co2", 2, [[0.4], [0.6]], state_names={"co2": ["<7.5", ">=7.5"]}))
+
+    with pytest.warns(UserWarning, match="was changed"):
+        with pytest.raises(ValueError, match="'co2'.*'_7_5': \\['<7.5', '>=7.5'\\]"):
+            XMLBIFWriter(model)
+
+
+def test_writer_keeps_distinct_state_names_after_replacement(tmp_path):
+    model = DiscreteBayesianNetwork()
+    model.add_node("level")
+    model.add_cpds(TabularCPD("level", 2, [[0.4], [0.6]], state_names={"level": ["low-1", "high-1"]}))
+
+    path = tmp_path / "level.xml"
+    with pytest.warns(UserWarning, match="was changed"):
+        XMLBIFWriter(model).write(path)
+
+    read_model = XMLBIFReader(path).read()
+    assert read_model.get_cpds("level").state_names["level"] == ["low_1", "high_1"]
